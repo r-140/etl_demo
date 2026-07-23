@@ -1,0 +1,6 @@
+# Kubernetes
+*.kubeconfig
+kubeconfig
+secrets/
+*.secret.yaml
+*.secret.yml

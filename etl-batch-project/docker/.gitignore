@@ -1,0 +1,17 @@
+# Docker
+.env
+.env.local
+*.env
+
+# Volumes data
+postgres_data/
+clickhouse_data/
+spark_data/
+airflow_data/
+minio_data/
+grafana_data/
+prometheus_data/
+
+# Logs
+*.log
+logs/
