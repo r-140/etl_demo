@@ -1,0 +1,147 @@
+version: 2
+
+sources:
+  - name: olap
+    description: "ClickHouse OLAP database with star schema"
+    database: "{{ target.database }}"
+    schema: "{{ var('customer_schema') }}"
+
+    tables:
+      - name: fact_orders
+        description: "Order line items fact table"
+        columns:
+          - name: order_key
+            description: "Surrogate key for the order line"
+            tests:
+              - unique
+              - not_null
+          - name: order_id
+            description: "Natural key from OLTP"
+          - name: date_key
+            description: "Foreign key to dim_date"
+            tests:
+              - relationships:
+                  to: source('olap', 'dim_date')
+                  field: date_key
+          - name: customer_key
+            description: "Foreign key to dim_customer"
+            tests:
+              - relationships:
+                  to: source('olap', 'dim_customer')
+                  field: customer_key
+          - name: product_key
+            description: "Foreign key to dim_product"
+            tests:
+              - relationships:
+                  to: source('olap', 'dim_product')
+                  field: product_key
+          - name: quantity
+            description: "Number of units ordered"
+            tests:
+              - not_null
+              - dbt_utils.accepted_range:
+                  min_value: 0
+          - name: unit_price
+            description: "Price per unit at time of order"
+            tests:
+              - not_null
+          - name: line_total
+            description: "Total line amount (quantity * unit_price - discount)"
+            tests:
+              - not_null
+          - name: profit_amount
+            description: "Profit for this line item"
+
+      - name: dim_customer
+        description: "Customer dimension with SCD Type 2"
+        columns:
+          - name: customer_key
+            description: "Surrogate key"
+            tests:
+              - unique
+              - not_null
+          - name: customer_id
+            description: "Natural key from OLTP"
+          - name: first_name
+          - name: last_name
+          - name: full_name
+          - name: email
+            tests:
+              - not_null
+          - name: segment
+          - name: tier
+          - name: valid_from
+          - name: valid_to
+          - name: is_current
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [0, 1]
+
+      - name: dim_product
+        description: "Product dimension with SCD Type 2"
+        columns:
+          - name: product_key
+            description: "Surrogate key"
+            tests:
+              - unique
+              - not_null
+          - name: product_id
+            description: "Natural key from OLTP"
+          - name: name
+          - name: sku
+          - name: category_name
+          - name: vendor_name
+          - name: price
+          - name: cost
+          - name: margin
+          - name: is_current
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [0, 1]
+
+      - name: dim_vendor
+        description: "Vendor dimension"
+        columns:
+          - name: vendor_key
+            tests:
+              - unique
+              - not_null
+          - name: vendor_id
+          - name: name
+          - name: status
+
+      - name: dim_date
+        description: "Date dimension"
+        columns:
+          - name: date_key
+            tests:
+              - unique
+              - not_null
+          - name: date
+          - name: year
+          - name: month
+          - name: day
+          - name: quarter
+          - name: day_of_week
+          - name: is_weekend
+          - name: is_holiday
+
+      - name: daily_sales_summary
+        description: "Pre-aggregated daily metrics"
+        columns:
+          - name: date
+            tests:
+              - unique
+              - not_null
+          - name: total_orders
+          - name: total_revenue
+          - name: unique_customers
+          - name: avg_order_value
+
+      - name: weekly_customer_ltv
+        description: "Pre-aggregated weekly customer LTV"
+
+      - name: monthly_product_performance
+        description: "Pre-aggregated monthly product metrics"

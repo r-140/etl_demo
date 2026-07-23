@@ -1,0 +1,108 @@
+name: 'etl_analytics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'etl_platform'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  # Customer schema configuration - overridden per environment
+  customer_schema: 'customer_003'
+
+  # Date ranges for incremental models
+  lookback_days: 30
+
+  # Business logic thresholds
+  vip_threshold: 10000
+  gold_threshold: 5000
+  silver_threshold: 1000
+
+  # Currency and formatting
+  currency_code: 'USD'
+  date_format: '%Y-%m-%d'
+
+models:
+  etl_analytics:
+    +materialized: view
+    +schema: "{{ var('customer_schema') }}"
+
+    staging:
+      +materialized: view
+      +schema: "{{ var('customer_schema') }}_staging"
+      +docs:
+        node_color: '#4CAF50'
+
+    intermediate:
+      +materialized: ephemeral
+      +schema: "{{ var('customer_schema') }}_intermediate"
+      +docs:
+        node_color: '#2196F3'
+
+    marts:
+      +materialized: table
+      +schema: "{{ var('customer_schema') }}_marts"
+      +docs:
+        node_color: '#FF9800'
+
+      core:
+        +materialized: incremental
+        +incremental_strategy: merge
+        +unique_key: ['surrogate_key']
+        +on_schema_change: sync_all_columns
+
+      finance:
+        +materialized: table
+        +tags: ['finance', 'executive']
+
+      marketing:
+        +materialized: table
+        +tags: ['marketing', 'growth']
+
+seeds:
+  etl_analytics:
+    +schema: "{{ var('customer_schema') }}_seeds"
+    +enabled: true
+
+snapshots:
+  etl_analytics:
+    +target_schema: "{{ var('customer_schema') }}_snapshots"
+    +strategy: check
+    +check_cols: ['updated_at']
+
+sources:
+  olap:
+    database: olap
+    schema: "{{ var('customer_schema') }}"
+    tables:
+      - name: fact_orders
+        description: "Order facts with line-level granularity"
+        columns:
+          - name: order_key
+            tests:
+              - unique
+              - not_null
+      - name: dim_customer
+        description: "Customer dimension with SCD Type 2"
+      - name: dim_product
+        description: "Product dimension with SCD Type 2"
+      - name: dim_vendor
+        description: "Vendor dimension"
+      - name: dim_date
+        description: "Date dimension"
+      - name: daily_sales_summary
+        description: "Pre-aggregated daily sales"
+      - name: weekly_customer_ltv
+        description: "Pre-aggregated weekly LTV"
+      - name: monthly_product_performance
+        description: "Pre-aggregated monthly product metrics"

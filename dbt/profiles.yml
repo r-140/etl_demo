@@ -1,0 +1,42 @@
+etl_platform:
+  target: dev
+  outputs:
+    dev:
+      type: clickhouse
+      schema: "{{ env_var('DBT_CUSTOMER_SCHEMA', 'customer_003') }}"
+      host: "{{ env_var('DBT_CLICKHOUSE_HOST', 'localhost') }}"
+      port: "{{ env_var('DBT_CLICKHOUSE_PORT', '8123') | int }}"
+      user: "{{ env_var('DBT_CLICKHOUSE_USER', 'etl') }}"
+      password: "{{ env_var('DBT_CLICKHOUSE_PASSWORD', 'etl') }}"
+      database: "{{ env_var('DBT_CLICKHOUSE_DATABASE', 'olap') }}"
+      secure: False
+      verify: False
+      cluster_mode: False
+      compression: "gzip"
+
+    prod:
+      type: clickhouse
+      schema: "{{ env_var('DBT_CUSTOMER_SCHEMA') }}"
+      host: "{{ env_var('DBT_CLICKHOUSE_HOST') }}"
+      port: "{{ env_var('DBT_CLICKHOUSE_PORT') | int }}"
+      user: "{{ env_var('DBT_CLICKHOUSE_USER') }}"
+      password: "{{ env_var('DBT_CLICKHOUSE_PASSWORD') }}"
+      database: "{{ env_var('DBT_CLICKHOUSE_DATABASE') }}"
+      secure: True
+      verify: True
+      cluster_mode: True
+      compression: "gzip"
+
+    # Profile for local Docker setup
+    docker:
+      type: clickhouse
+      schema: "{{ env_var('DBT_CUSTOMER_SCHEMA', 'customer_003') }}"
+      host: clickhouse-olap
+      port: 8123
+      user: etl
+      password: etl
+      database: olap
+      secure: False
+      verify: False
+      cluster_mode: False
+      compression: "gzip"

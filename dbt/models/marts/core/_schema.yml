@@ -1,0 +1,61 @@
+version: 2
+
+models:
+  - name: stg_orders
+    description: "Cleaned and typed order line items from OLAP fact_orders"
+    columns:
+      - name: order_key
+        description: "Surrogate key for order line"
+        tests:
+          - unique
+          - not_null
+      - name: line_total
+        description: "Total amount for this line (quantity * unit_price - discount)"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+
+  - name: dim_customer_enriched
+    description: "Customer dimension enriched with calculated metrics and RFM scoring"
+    columns:
+      - name: customer_key
+        tests:
+          - unique
+          - not_null
+      - name: calculated_tier
+        description: "Dynamic tier based on lifetime value"
+        tests:
+          - accepted_values:
+              values: ['VIP', 'Gold', 'Silver', 'Bronze']
+      - name: lifecycle_stage
+        description: "Customer lifecycle based on recency"
+        tests:
+          - accepted_values:
+              values: ['New', 'Active', 'At Risk', 'Dormant', 'Churned']
+
+  - name: fct_sales_daily
+    description: "Daily sales aggregation with customer and payment breakdowns"
+    columns:
+      - name: date_key
+        tests:
+          - unique
+          - not_null
+      - name: total_revenue
+        tests:
+          - not_null
+
+  - name: fct_customer_rfm
+    description: "RFM segmentation for marketing campaigns"
+    columns:
+      - name: customer_key
+        tests:
+          - unique
+          - not_null
+      - name: rfm_segment
+        description: "Marketing segment based on RFM score"
+        tests:
+          - accepted_values:
+              values: ['Champions', 'Loyal Customers', 'Potential Loyalists', 
+                       'New Customers', 'Promising', 'Need Attention', 
+                       'About to Sleep', 'At Risk']
