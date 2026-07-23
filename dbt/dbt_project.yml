@@ -49,6 +49,15 @@ models:
       +docs:
         node_color: '#2196F3'
 
+    bronze:
+      +materialized: incremental
+      +incremental_strategy: append
+      +schema: "{{ var('customer_schema') }}_bronze"
+      +tags: ['data_vault', 'bronze']
+      data_vault:
+        +docs:
+          node_color: '#9C27B0'
+
     marts:
       +materialized: table
       +schema: "{{ var('customer_schema') }}_marts"

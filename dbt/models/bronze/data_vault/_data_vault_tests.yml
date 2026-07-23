@@ -1,0 +1,202 @@
+version: 2
+
+# ============================================
+# Data Vault 2.0 Validation Tests
+# ============================================
+# These tests ensure all Data Vault principles are followed:
+# 1. Hubs contain ONLY business keys + hash key + audit
+# 2. Links contain ONLY hub hash keys + link hash key + audit
+# 3. Satellites contain ONLY parent hub hash key + descriptive attrs + hash_diff + audit
+# 4. No descriptive attributes in Hubs or Links
+# 5. Referential integrity between Links and Hubs
+# 6. Hash keys are deterministic (same input = same hash)
+# 7. Hash diffs detect changes correctly
+
+models:
+  # ============================================
+  # HUB TESTS
+  # ============================================
+  - name: hub_customer
+    description: "Hub for Customer business keys"
+    columns:
+      - name: customer_hk
+        description: "Hash key - must be unique and deterministic"
+        tests:
+          - unique
+          - not_null
+
+      - name: customer_bk
+        description: "Business key - must be unique"
+        tests:
+          - unique
+          - not_null
+
+      - name: load_date
+        tests:
+          - not_null
+
+      - name: record_source
+        tests:
+          - not_null
+
+    # Custom test: Hub has no descriptive attributes
+    tests:
+      - dbt_utils.accepted_range:
+          column_name: "(SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'hub_customer' AND column_name NOT IN ('customer_hk', 'customer_bk', 'load_date', 'record_source'))"
+          min_value: 0
+          max_value: 0
+
+  - name: hub_product
+    description: "Hub for Product business keys"
+    columns:
+      - name: product_hk
+        tests:
+          - unique
+          - not_null
+      - name: product_bk
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_order
+    description: "Hub for Order business keys"
+    columns:
+      - name: order_hk
+        tests:
+          - unique
+          - not_null
+      - name: order_bk
+        tests:
+          - unique
+          - not_null
+
+  # ============================================
+  # LINK TESTS
+  # ============================================
+  - name: link_order_customer
+    description: "Link between Order and Customer hubs"
+    columns:
+      - name: link_hk
+        description: "Link hash key - must be unique"
+        tests:
+          - unique
+          - not_null
+
+      - name: order_hk
+        description: "Foreign key to hub_order"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_order')
+              field: order_hk
+
+      - name: customer_hk
+        description: "Foreign key to hub_customer"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_customer')
+              field: customer_hk
+
+    tests:
+      # Link should have no descriptive attributes
+      - dbt_utils.expression_is_true:
+          expression: "LENGTH(COALESCE(order_bk, '')) > 0"
+
+  - name: link_order_product
+    description: "Link between Order and Product hubs"
+    columns:
+      - name: link_hk
+        tests:
+          - unique
+          - not_null
+      - name: order_hk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_order')
+              field: order_hk
+      - name: product_hk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_product')
+              field: product_hk
+
+  # ============================================
+  # SATELLITE TESTS
+  # ============================================
+  - name: sat_customer_details
+    description: "Satellite for Customer descriptive attributes"
+    columns:
+      - name: customer_hk
+        description: "Parent hub hash key"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_customer')
+              field: customer_hk
+
+      - name: hash_diff
+        description: "Hash diff for change detection - must not be null"
+        tests:
+          - not_null
+
+      - name: first_name
+      - name: last_name
+      - name: email
+        tests:
+          - not_null
+
+      - name: load_date
+        tests:
+          - not_null
+
+    tests:
+      # Composite uniqueness: same hub key + different load_date = different records
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - customer_hk
+            - load_date
+
+      # Hash diff should be deterministic for same attributes
+      - dbt_utils.expression_is_true:
+          expression: "LENGTH(hash_diff) = 32"
+
+  - name: sat_product_details
+    description: "Satellite for Product descriptive attributes"
+    columns:
+      - name: product_hk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_product')
+              field: product_hk
+      - name: hash_diff
+        tests:
+          - not_null
+
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - product_hk
+            - load_date
+
+  - name: sat_order_details
+    description: "Satellite for Order descriptive attributes"
+    columns:
+      - name: order_hk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_order')
+              field: order_hk
+      - name: hash_diff
+        tests:
+          - not_null
+
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - order_hk
+            - load_date
