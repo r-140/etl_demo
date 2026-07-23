@@ -1,0 +1,264 @@
+version: '3.8'
+
+services:
+  # ========================
+  # OLTP - PostgreSQL
+  # ========================
+  postgres-oltp:
+    image: postgres:16-alpine
+    container_name: etl-postgres-oltp
+    environment:
+      POSTGRES_DB: oltp
+      POSTGRES_USER: etl
+      POSTGRES_PASSWORD: etl
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    volumes:
+      - postgres-oltp-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U etl -d oltp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - etl-network
+
+  # ========================
+  # Metadata Store - PostgreSQL
+  # ========================
+  postgres-metadata:
+    image: postgres:16-alpine
+    container_name: etl-postgres-metadata
+    environment:
+      POSTGRES_DB: etl_metadata
+      POSTGRES_USER: etl
+      POSTGRES_PASSWORD: etl
+    volumes:
+      - postgres-metadata-data:/var/lib/postgresql/data
+      - ./postgres/init/metadata.sql:/docker-entrypoint-initdb.d/01_metadata.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U etl -d etl_metadata"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - etl-network
+
+  # ========================
+  # OLAP - ClickHouse
+  # ========================
+  clickhouse-olap:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: etl-clickhouse
+    environment:
+      CLICKHOUSE_DB: olap
+      CLICKHOUSE_USER: etl
+      CLICKHOUSE_PASSWORD: etl
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/init:/docker-entrypoint-initdb.d
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # Native
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - etl-network
+
+  # ========================
+  # Spark
+  # ========================
+  spark-master:
+    image: bitnami/spark:3.5.1
+    container_name: etl-spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+      - "8888:8888"
+    volumes:
+      - spark-data:/opt/spark/work
+      - ../etl-batch-jobs/target:/opt/spark/jobs
+    networks:
+      - etl-network
+
+  spark-worker:
+    image: bitnami/spark:3.5.1
+    container_name: etl-spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=4G
+      - SPARK_WORKER_CORES=4
+    depends_on:
+      - spark-master
+    volumes:
+      - spark-data:/opt/spark/work
+    networks:
+      - etl-network
+
+  # ========================
+  # Airflow
+  # ========================
+  airflow-postgres:
+    image: postgres:16-alpine
+    container_name: etl-airflow-db
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - airflow-postgres-data:/var/lib/postgresql/data
+    networks:
+      - etl-network
+
+  airflow-init:
+    image: apache/airflow:2.9.0
+    container_name: etl-airflow-init
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+    depends_on:
+      - airflow-postgres
+    entrypoint: >
+      bash -c "
+        airflow db init &&
+        airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com
+      "
+    networks:
+      - etl-network
+
+  airflow-webserver:
+    image: apache/airflow:2.9.0
+    container_name: etl-airflow-webserver
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__WEBSERVER__BASE_URL=http://localhost:8081
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+    ports:
+      - "8081:8080"
+    depends_on:
+      - airflow-init
+      - airflow-postgres
+    command: webserver
+    networks:
+      - etl-network
+
+  airflow-scheduler:
+    image: apache/airflow:2.9.0
+    container_name: etl-airflow-scheduler
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+    depends_on:
+      - airflow-init
+      - airflow-postgres
+    command: scheduler
+    networks:
+      - etl-network
+
+  # ========================
+  # Monitoring - Prometheus
+  # ========================
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: etl-prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - etl-network
+
+  # ========================
+  # Monitoring - Grafana
+  # ========================
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: etl-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - etl-network
+
+  # ========================
+  # Pushgateway (for batch job metrics)
+  # ========================
+  pushgateway:
+    image: prom/pushgateway:v1.7.0
+    container_name: etl-pushgateway
+    ports:
+      - "9091:9091"
+    networks:
+      - etl-network
+
+  # ========================
+  # MinIO (S3-compatible storage for Delta Lake)
+  # ========================
+  minio:
+    image: minio/minio:RELEASE.2024-03-30T09-41-56Z
+    container_name: etl-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - etl-network
+
+volumes:
+  postgres-oltp-data:
+  postgres-metadata-data:
+  clickhouse-data:
+  spark-data:
+  airflow-postgres-data:
+  airflow-logs:
+  prometheus-data:
+  grafana-data:
+  minio-data:
+
+networks:
+  etl-network:
+    driver: bridge

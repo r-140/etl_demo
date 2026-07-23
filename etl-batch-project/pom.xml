@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.analytics</groupId>
+    <artifactId>etl-batch-project</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>ETL Batch Project</name>
+    <description>Production-grade ETL batch processing with Spark, multi-tenant OLTP/OLAP, and dynamic delta strategies</description>
+
+    <modules>
+        <module>etl-batch-core</module>
+        <module>etl-batch-jobs</module>
+        <module>etl-batch-orchestrator</module>
+        <module>data-generator</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <spark.version>3.5.1</spark.version>
+        <scala.version>2.12.18</scala.version>
+        <delta.version>3.1.0</delta.version>
+        <postgres.version>42.7.3</postgres.version>
+        <clickhouse.version>0.6.0</clickhouse.version>
+        <prometheus.version>0.16.0</prometheus.version>
+        <jackson.version>2.17.0</jackson.version>
+        <slf4j.version>2.0.13</slf4j.version>
+        <logback.version>1.5.6</logback.version>
+        <junit.version>5.10.2</junit.version>
+        <mockito.version>5.11.0</mockito.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spark -->
+            <dependency>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-core_2.12</artifactId>
+                <version>${spark.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-sql_2.12</artifactId>
+                <version>${spark.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-hive_2.12</artifactId>
+                <version>${spark.version}</version>
+            </dependency>
+
+            <!-- Delta Lake -->
+            <dependency>
+                <groupId>io.delta</groupId>
+                <artifactId>delta-core_2.12</artifactId>
+                <version>${delta.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.delta</groupId>
+                <artifactId>delta-storage</artifactId>
+                <version>${delta.version}</version>
+            </dependency>
+
+            <!-- Databases -->
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${postgres.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.clickhouse</groupId>
+                <artifactId>clickhouse-jdbc</artifactId>
+                <version>${clickhouse.version}</version>
+                <classifier>http</classifier>
+            </dependency>
+
+            <!-- Prometheus Metrics -->
+            <dependency>
+                <groupId>io.prometheus</groupId>
+                <artifactId>simpleclient</artifactId>
+                <version>${prometheus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.prometheus</groupId>
+                <artifactId>simpleclient_pushgateway</artifactId>
+                <version>${prometheus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.prometheus</groupId>
+                <artifactId>simpleclient_hotspot</artifactId>
+                <version>${prometheus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.prometheus</groupId>
+                <artifactId>simpleclient_httpserver</artifactId>
+                <version>${prometheus.version}</version>
+            </dependency>
+
+            <!-- JSON -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jsr310</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <!-- Logging -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback.version}</version>
+            </dependency>
+
+            <!-- Testing -->
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-junit-jupiter</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.13.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.5.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.2.5</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>
