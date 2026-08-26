@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ========================
   # OLTP - PostgreSQL
@@ -37,7 +35,7 @@ services:
       POSTGRES_PASSWORD: etl
     volumes:
       - postgres-metadata-data:/var/lib/postgresql/data
-      - ./postgres/init/metadata.sql:/docker-entrypoint-initdb.d/01_metadata.sql
+      - ./postgres/init/03_metadata.sql:/docker-entrypoint-initdb.d/01_metadata.sql
     ports:
       - "5433:5432"
     healthcheck:
@@ -243,7 +241,7 @@ services:
     volumes:
       - minio-data:/data
     ports:
-      - "9000:9000"
+      - "9002:9000"
       - "9001:9001"
     networks:
       - etl-network

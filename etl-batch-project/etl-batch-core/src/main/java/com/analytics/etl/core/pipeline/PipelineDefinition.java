@@ -13,9 +13,9 @@ public class PipelineDefinition {
 
     private String name;
     private String sourceTable;
-    private Map<String, String> sourceOptions;
-    private List<SparkTransform> transforms;
-    private List<QuarantineManager.ValidationRule> validationRules;
+    private Map<String, String> sourceOptions = Map.of();
+    private List<SparkTransform> transforms = List.of();
+    private List<QuarantineManager.ValidationRule> validationRules = List.of();
     private String targetPath;
     private String targetFormat = "delta";
     private String loadMode = "append"; // overwrite, append, merge
@@ -37,7 +37,15 @@ public class PipelineDefinition {
         public Builder loadMode(String mode) { def.loadMode = mode; return this; }
         public Builder mergeCondition(String condition) { def.mergeCondition = condition; return this; }
 
-        public PipelineDefinition build() { return def; }
+        public PipelineDefinition build() {
+            if (def.name == null || def.name.isBlank()) throw new IllegalStateException("pipeline name is required");
+            if (def.sourceTable == null || def.sourceTable.isBlank()) throw new IllegalStateException("source table is required");
+            if (def.targetPath == null || def.targetPath.isBlank()) throw new IllegalStateException("target path is required");
+            if ("merge".equals(def.loadMode) && (def.mergeCondition == null || def.mergeCondition.isBlank())) {
+                throw new IllegalStateException("mergeCondition is required for merge mode");
+            }
+            return def;
+        }
     }
 
     // Getters

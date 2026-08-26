@@ -59,7 +59,8 @@ public class LandingZoneStrategy implements DeltaStrategy {
         String filePattern = sourceOptions.getOrDefault("filePattern", "*");
         String fileFormat = sourceOptions.getOrDefault("fileFormat", "parquet");
         String archivePath = sourceOptions.getOrDefault("archivePath", landingPath + "/archive");
-        boolean moveAfterProcess = Boolean.parseBoolean(sourceOptions.getOrDefault("moveAfterProcess", "true"));
+        // Archiving during extraction can lose a batch when transform/load later fails.
+        boolean moveAfterProcess = Boolean.parseBoolean(sourceOptions.getOrDefault("moveAfterProcess", "false"));
 
         DeltaMetadata lastMeta = getLastExtractionMetadata(config, sourceTable);
         String lastProcessedFile = lastMeta != null ? lastMeta.getWatermarkValue() : "";

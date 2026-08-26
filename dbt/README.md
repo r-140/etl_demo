@@ -2,7 +2,9 @@
 
 ## Overview
 
-This DBT project transforms raw OLAP data (star schema) into business-ready models for reporting and analysis.
+This dbt project demonstrates source-shaped staging, a Data Vault Raw Vault in
+the silver layer, and Kimball-style dimensions/facts in gold. See
+`../docs/WAREHOUSE_MODELING.md` for the trade-offs.
 
 ## Architecture
 
@@ -22,13 +24,19 @@ Raw OLAP (ClickHouse)
         └── stg_dates
             │
             ▼
+    Silver Raw Vault (incremental)
+        ├── hubs
+        ├── links
+        └── satellites
+            │
+            ▼
     Intermediate (ephemeral)
         ├── int_orders_enriched
         ├── int_customer_metrics
         └── int_product_metrics
             │
             ▼
-    Marts (tables/incremental)
+    Gold / Marts (tables/incremental)
         ├── Core
         │   ├── fct_sales_daily
         │   ├── dim_customer_enriched

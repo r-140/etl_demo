@@ -29,6 +29,8 @@ current_records AS (
         valid_from,
         valid_to,
         is_current,
+        valid_from AS load_date,
+        'olap.dim_product' AS record_source,
 
         -- Derived fields
         CASE 

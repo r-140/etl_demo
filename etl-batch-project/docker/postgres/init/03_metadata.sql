@@ -1,7 +1,5 @@
--- ETL Metadata database schema
-CREATE DATABASE IF NOT EXISTS etl_metadata;
-
-\c etl_metadata;
+-- The postgres-metadata container creates etl_metadata before running this file.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Delta extraction metadata (watermarks)
 CREATE TABLE IF NOT EXISTS etl_metadata (
@@ -21,6 +19,22 @@ CREATE TABLE IF NOT EXISTS etl_metadata (
 
 CREATE INDEX IF NOT EXISTS idx_metadata_customer ON etl_metadata(customer_id);
 CREATE INDEX IF NOT EXISTS idx_metadata_lookup ON etl_metadata(customer_id, source_table, strategy_name);
+
+-- Append-only audit history; etl_metadata above remains the fast current-state lookup.
+CREATE TABLE IF NOT EXISTS etl_metadata_history (
+    id BIGSERIAL PRIMARY KEY,
+    customer_id VARCHAR(50) NOT NULL,
+    source_table VARCHAR(100) NOT NULL,
+    strategy_name VARCHAR(50) NOT NULL,
+    watermark_value VARCHAR(255),
+    record_count BIGINT DEFAULT 0,
+    status VARCHAR(20) NOT NULL,
+    extraction_time TIMESTAMP NOT NULL,
+    additional_properties JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_metadata_history_lookup
+    ON etl_metadata_history(customer_id, source_table, extraction_time DESC);
 
 -- Job execution tracking
 CREATE TABLE IF NOT EXISTS etl_job_executions (

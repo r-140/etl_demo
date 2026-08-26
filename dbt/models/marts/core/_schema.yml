@@ -1,6 +1,20 @@
 version: 2
 
 models:
+  - name: dim_customer_scd1
+    description: "Kimball customer dimension using SCD Type 1 overwrite semantics."
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+
+  - name: dim_customer_scd2
+    description: "Kimball customer history built from the dbt snapshot."
+    columns:
+      - name: customer_version_key
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [not_null]
+
   - name: stg_orders
     description: "Cleaned and typed order line items from OLAP fact_orders"
     columns:

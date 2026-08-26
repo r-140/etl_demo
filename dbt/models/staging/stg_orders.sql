@@ -25,9 +25,11 @@ renamed AS (
 
         -- Customer dimension reference
         customer_key,
+        customer_key AS customer_id,
 
         -- Product dimension reference
         product_key,
+        product_key AS product_id,
 
         -- Vendor dimension reference
         vendor_key,
@@ -44,6 +46,8 @@ renamed AS (
         -- Degenerate dimensions
         order_status,
         payment_method,
+        now() AS load_date,
+        'olap.fact_orders' AS record_source,
 
         -- Derived metrics
         quantity * unit_price AS gross_amount,

@@ -12,6 +12,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.analytics.etl.core.metrics.PrometheusMetrics;
 
 /**
  * Customer Dimension ETL Job with SCD Type 2.
@@ -30,16 +33,35 @@ public class CustomerDimensionJob {
             System.exit(1);
         }
 
-        String configJson = args[0];
-        // Parse and run similar to OrderFactJob
-        LOG.info("CustomerDimensionJob starting...");
+        try {
+            CustomerConfig config = new ObjectMapper().registerModule(new JavaTimeModule())
+                    .readValue(args[0], CustomerConfig.class);
+            SparkSession spark = SparkSession.builder()
+                    .appName("CustomerDimensionJob-" + config.getCustomerId())
+                    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+                    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+                    .getOrCreate();
+            ETLMetrics metrics = new PrometheusMetrics(
+                    System.getProperty("prometheus.pushgateway", "localhost:9091"),
+                    "customer_dimension_job", Map.of("customer_id", config.getCustomerId()));
+            try {
+                PipelineResult result = run(spark, config, metrics);
+                if (!result.isSuccess()) System.exit(1);
+            } finally {
+                metrics.close();
+                spark.stop();
+            }
+        } catch (Exception e) {
+            LOG.error("CustomerDimensionJob failed", e);
+            System.exit(1);
+        }
     }
 
     public static PipelineResult run(SparkSession spark, CustomerConfig config, ETLMetrics metrics) {
         List transforms = List.of(
             new SCDType2Transform(
                 new String[]{"customer_id"},
-                new String[]{"name", "email", "segment", "tier"}
+                new String[]{"first_name", "last_name", "email", "phone", "segment", "tier"}
             )
         );
 

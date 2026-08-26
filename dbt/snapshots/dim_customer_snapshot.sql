@@ -2,7 +2,7 @@
     {{
         config(
             target_schema=var('customer_schema') ~ '_snapshots',
-            unique_key='customer_key',
+            unique_key='customer_id',
             strategy='check',
             check_cols=['tier', 'segment', 'email', 'phone']
         )

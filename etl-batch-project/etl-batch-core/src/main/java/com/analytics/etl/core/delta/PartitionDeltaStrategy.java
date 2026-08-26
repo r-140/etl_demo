@@ -103,8 +103,9 @@ public class PartitionDeltaStrategy implements DeltaStrategy {
 
         // Update watermark with latest processed partition
         if (count > 0) {
-            String latestPartition = sourceDF.agg(org.apache.spark.sql.functions.max(partitionColumn))
-                    .collectAsList().get(0).getString(0);
+            Object latestPartitionValue = sourceDF.agg(org.apache.spark.sql.functions.max(partitionColumn))
+                    .first().get(0);
+            String latestPartition = latestPartitionValue.toString();
             DeltaMetadata newMeta = DeltaMetadata.builder()
                     .customerId(config.getCustomerId())
                     .sourceTable(sourceTable)

@@ -84,8 +84,8 @@ public class TimestampDeltaStrategy implements DeltaStrategy {
 
         // Update watermark with max timestamp
         if (count > 0) {
-            String maxTimestamp = sourceDF.agg(functions.max(timestampColumn)).collectAsList()
-                    .get(0).getString(0);
+            Object maxTimestampValue = sourceDF.agg(functions.max(timestampColumn)).first().get(0);
+            String maxTimestamp = maxTimestampValue.toString();
             DeltaMetadata newMeta = DeltaMetadata.builder()
                     .customerId(config.getCustomerId())
                     .sourceTable(sourceTable)

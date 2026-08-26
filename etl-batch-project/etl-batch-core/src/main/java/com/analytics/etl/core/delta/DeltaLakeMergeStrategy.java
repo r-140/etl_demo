@@ -69,12 +69,17 @@ public class DeltaLakeMergeStrategy implements DeltaStrategy {
             // Try to read changes from Delta Lake table history
             DeltaTable deltaTable = DeltaTable.forPath(spark, deltaPath);
 
-            // Read CDC changes between versions
-            deltaDF = spark.read()
-                .format("delta")
-                .option("readChangeFeed", "true")
-                .option("startingVersion", lastVersion)
-                .load(deltaPath);
+            if (lastMeta == null) {
+                // Existing table but first consumer run: establish a complete baseline.
+                deltaDF = spark.read().format("delta").load(deltaPath);
+            } else {
+                // The stored version is inclusive; resume at the following commit.
+                deltaDF = spark.read()
+                    .format("delta")
+                    .option("readChangeFeed", "true")
+                    .option("startingVersion", lastVersion + 1)
+                    .load(deltaPath);
+            }
 
         } catch (Exception e) {
             LOG.warn("Delta table not found at {}, falling back to full read: {}", deltaPath, e.getMessage());
@@ -139,10 +144,9 @@ public class DeltaLakeMergeStrategy implements DeltaStrategy {
             .whenNotMatched().insertAll()
             .execute();
 
-        long updatedCount = targetTable.history(1).select("operationMetrics")
-            .collectAsList().get(0).getMap(0).get("numTargetRowsUpdated").toString() != null ? 
-            Long.parseLong(targetTable.history(1).select("operationMetrics")
-                .collectAsList().get(0).getMap(0).get("numTargetRowsUpdated").toString()) : 0;
+        Object updatedMetric = targetTable.history(1).select("operationMetrics")
+                .collectAsList().get(0).getMap(0).get("numTargetRowsUpdated");
+        long updatedCount = updatedMetric == null ? 0 : Long.parseLong(updatedMetric.toString());
 
         metrics.recordCounter("delta.lake.rows.updated", updatedCount, "global", deltaPath);
     }
